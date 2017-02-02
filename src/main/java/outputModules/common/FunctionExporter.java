@@ -1,7 +1,7 @@
 package outputModules.common;
 
 import ast.ASTNode;
-import ast.functionDef.FunctionDef;
+import ast.functionDef.FunctionDefBase;
 import cfg.CFG;
 import cfg.CFGFactory;
 import databaseNodes.FileDatabaseNode;
@@ -39,7 +39,14 @@ public abstract class FunctionExporter extends ASTNodeExporter
 			analyzer.reset();
 			function.setASTDefUseAnalyzer(analyzer);
 			function.setCFGFactory(cfgFactory);
-			function.initialize(node);
+
+			try{
+				function.initialize(node);
+			}catch(StackOverflowError err){
+				System.err.println("caught stack overflow. Skipping function.");
+				return;
+			}
+
 			addFunctionToDatabase(function);
 			linkFunctionToFileNode(function, curFile);
 
@@ -48,7 +55,7 @@ public abstract class FunctionExporter extends ASTNodeExporter
 		{
 			ex.printStackTrace();
 			System.err.println("Error adding function to database: "
-					+ ((FunctionDef) node).getName());
+					+ ((FunctionDefBase) node).getName());
 			return;
 		}
 	}

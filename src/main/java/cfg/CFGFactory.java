@@ -1,13 +1,15 @@
 package cfg;
 
+
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map.Entry;
 
 import ast.ASTNode;
-import ast.functionDef.FunctionDef;
-import ast.functionDef.Parameter;
+import ast.functionDef.FunctionDefBase;
+import ast.functionDef.ParameterBase;
 import ast.functionDef.ParameterList;
 import ast.logical.statements.BreakOrContinueStatement;
 import ast.logical.statements.CompoundStatement;
@@ -35,7 +37,7 @@ public class CFGFactory
 {
 	protected static StructuredFlowVisitor structuredFlowVisitior;
 
-	public CFG newInstance(FunctionDef functionDefinition)
+	public CFG newInstance(FunctionDefBase functionDefinition)
 	{
 		try
 		{
@@ -324,9 +326,17 @@ public class CFGFactory
 
 			boolean defaultLabel = false;
 
+			HashMap<String, CFGNode> nonCaseLabels = new HashMap<>();
 			for (Entry<String, CFGNode> block : switchBody.getLabels()
 					.entrySet())
 			{
+				// Skip labels that aren't for switch statements.
+				if (!block.getKey().matches("^(case|default).*"))
+				{
+					nonCaseLabels.put(block.getKey(), block.getValue());
+					continue;
+				}
+
 				if (block.getKey().equals("default"))
 				{
 					defaultLabel = true;
@@ -334,8 +344,16 @@ public class CFGFactory
 				switchBlock.addEdge(conditionContainer, block.getValue(),
 						block.getKey());
 			}
-			for (CFGEdge edge : switchBody
-					.incomingEdges(switchBody.getExitNode()))
+
+
+			// Hide case/default labels from upstream CFG analysis, they can't
+			// reference internal labels anyway and this prevents bugs with
+			// nested switch statements where the parent switch statement
+			// references the childs labels.
+			switchBlock.setLabels(nonCaseLabels);
+
+			for (CFGEdge edge : switchBody.incomingEdges(switchBody
+					.getExitNode()))
 			{
 				switchBlock.addEdge(edge.getSource(),
 						switchBlock.getExitNode());
@@ -362,7 +380,7 @@ public class CFGFactory
 		try
 		{
 			CFG parameterListBlock = newInstance();
-			for (Parameter parameter : paramList)
+			for (ParameterBase parameter : paramList)
 			{
 				parameterListBlock.appendCFG(convert(parameter));
 			}
